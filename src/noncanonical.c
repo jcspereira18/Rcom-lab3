@@ -20,6 +20,7 @@ int STOP=FALSE;
 #define A 0x01
 #define C 0x03
 #define BCC A^C
+#define ESC 0x5D
 
 
 typedef enum {
@@ -28,8 +29,10 @@ typedef enum {
     A_RCV,
     C_RCV,
     BCC_RCV,
+    ESC_RCV,
+    BCC2,
     END
-} SET_State;
+} FRAME_State;
 
 int received_message(int fd)
 {
@@ -60,7 +63,7 @@ int send_UA(int fd)
     buf[1]=0x01;
     buf[2]=0x07;
     buf[3]=0x01^0x07;
-    buf[4]=0x5c;
+    buf[4]=0x5C;
 
     res = write(fd,buf,strlen(buf));
     printf("%d bytes written UA\n", res);
@@ -73,7 +76,7 @@ int SET_read(int fd)
     uint8_t temp;
     int res;
 
-    SET_State currentState = START;
+    FRAME_State currentState = START;
    
     while(currentState != END){
 
@@ -146,8 +149,10 @@ int SET_read(int fd)
 
             case BCC_RCV:
 
-                if(temp == F)
+                if(temp == F){
+                    printf("\tReceived: 0x%x\n", temp);
                     currentState = END;
+                }
                 else
                     currentState = START;
 
@@ -161,9 +166,11 @@ int SET_read(int fd)
     return 0;
 }
 
+
+
 int main(int argc, char** argv)
 {
-    int fd, c, res, res_read, res_write;
+    int fd, c, res, res_read, res_write, res_frame;
     struct termios oldtio,newtio;
     char buf[255];
 
@@ -227,7 +234,7 @@ int main(int argc, char** argv)
     if (res_write != 0)
         printf("Error sending SET\n");
 
-
+    
     res = received_message(fd);
     if(res != 0)
         printf("Error received message\n");

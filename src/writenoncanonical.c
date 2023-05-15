@@ -17,12 +17,13 @@
 #define TRUE 1
 
 int STOP=FALSE;
-int fd;
+int fd, cont = 0, flag=1;
 
 #define F 0x5C
 #define A 0x01
 #define C 0x07
 #define BCC A^C
+#define ESC 0x5D
 
 typedef enum {
     START,
@@ -66,7 +67,7 @@ int send_SET(int fd)
     buf[1]=0x01;
     buf[2]=0x03;
     buf[3]=0x01^0x03;
-    buf[4]=0x5c;
+    buf[4]=0x5C;
 
     res = write(fd,buf,strlen(buf));
     printf("%d bytes written SET\n", res);
@@ -153,9 +154,10 @@ int UA_read(int fd)
 
             case BCC_RCV:
 
-                if(temp == F)
+                if(temp == F){
+                    printf("\tReceived: 0x%x\n", temp);
                     currentState = END;
-                
+                }
                 else
                     currentState = START;
 
@@ -178,19 +180,27 @@ void alarme()
     buf[1]=0x01;
     buf[2]=0x03;
     buf[3]=0x01^0x03;
-    buf[4]=0x5c;
+    buf[4]=0x5C;
 
-    printf("Don't recieve UA\n");
+    printf("Didn´t receive UA\n");
     res = write(fd,buf,strlen(buf));
     printf("%d bytes written SET\n", res);
-
+    
+    cont ++;
+  
+    if (cont == 5){
+        printf("Tou farto de esperar, ate logo\n"); 
+        exit(1);
+    }
+        
     alarm(3);
+    
 }
 
 
 int main(int argc, char** argv)
 {
-    int c, res, res_read, res_write;
+    int c, res, res_read, res_write, res_frame;
     struct termios oldtio,newtio;
     char buf[255] = {0};
     int sum = 0, speed = 0;
@@ -250,9 +260,8 @@ int main(int argc, char** argv)
     res_write = send_SET(fd);
     if (res_write != 0)
         printf("Error sending SET\n");
-
+    
     alarm(3);
-   
 
     res_read = UA_read(fd);
     alarm(0);
