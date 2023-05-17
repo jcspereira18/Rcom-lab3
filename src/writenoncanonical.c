@@ -201,7 +201,7 @@ void alarme()
 int write_frame(int fd)
 {
     int res, i;
-    char buf[255]={0} , buf2[255]={0x5D, 0x5c, 0x01, 0x05d};
+    char buf[255]={0} , buf2[255]={0x5D, 0x5c, 0x01, 0x03, 0x02, 0x5C};
     char bcc = buf2[0];
 
     buf[0]=0x5C;
@@ -316,6 +316,7 @@ int main(int argc, char** argv)
     else 
         printf("Error read UA\n");
 
+
     printf("\nSend Frame\n");
     res_frame = write_frame(fd);
     if(res_frame != 0)
@@ -326,8 +327,8 @@ int main(int argc, char** argv)
     if(res != 0)
         printf("Error sending message\n");
 
+    
     sleep(1);
-
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
         perror("tcsetattr");
         exit(-1);

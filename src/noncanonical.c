@@ -71,101 +71,6 @@ int send_UA(int fd)
     return 0;
 }
 
-int SET_read(int fd)
-{
-    uint8_t temp;
-    int res;
-
-    FRAME_State currentState = START;
-   
-    while(currentState != END){
-
-        res = read(fd, &temp, 1);
-
-        if (res < 0) 
-            return NULL;  // erro
- 
-        if (res == 0) {
-            if (currentState != END) 
-                return NULL;  // erro
-            else 
-                break;  // sucesso
-        }
-
-        switch(currentState){
-            case START:
-
-                if(temp == F){
-                    printf("\tReceived: 0x%x\n", temp);
-                    currentState = FLAG_RCV;
-                }
-            break;
-            
-            case FLAG_RCV:
-
-                if(temp == F){
-                     printf("\tReceived: 0x%x\n", temp);
-                    currentState = FLAG_RCV;
-                }
-                else if(temp == A){
-                     printf("\tReceived: 0x0%x\n", temp);
-                    currentState = A_RCV;
-                }
-                
-               else
-                    currentState = START;
-               
-            break; 
-
-            case A_RCV:
-                
-                if(temp == F){
-                     printf("\tReceived: 0x%x\n", temp);
-                    currentState = FLAG_RCV;
-                }
-                else if(temp == C){
-                    printf("\tReceived: 0x0%x\n", temp);
-                    currentState = C_RCV;
-                }
-                else 
-                    currentState = START;
-                
-            break;
-
-            case C_RCV:
-                
-                if(temp == F){
-                     printf("\tReceived: 0x%x\n", temp);
-                    currentState = FLAG_RCV;
-                }
-                else if(temp == BCC){
-                    printf("\tReceived: 0x0%x\n", temp);
-                    currentState = BCC_RCV;
-                }
-                else 
-                    currentState = START;
-
-            break;
-
-            case BCC_RCV:
-
-                if(temp == F){
-                    printf("\tReceived: 0x%x\n", temp);
-                    currentState = END;
-                }
-                else
-                    currentState = START;
-
-            break;
-
-            case END:
-            break; 
-        }
-    }
-
-    return 0;
-}
-
 
 int read_frame(int fd){
     uint8_t temp = 0, address, control;
@@ -390,17 +295,18 @@ int main(int argc, char** argv)
     printf("New termios structure set\n");
 
     printf("\nWriting back SET\n");
-    res_read = SET_read(fd);
-
+    res_read = read_frame(fd);
     if(res_read == 0)
         printf("Read SET correctly\n");
     else 
         printf("Error read SET\n");
 
+
     printf("\nSend UA\n");
     res_write = send_UA(fd);
     if (res_write != 0)
         printf("Error sending SET\n");
+
 
     printf("\nWriting back Frame\n");
     res_frame = read_frame(fd);
@@ -409,6 +315,7 @@ int main(int argc, char** argv)
     else
         printf("Error reading frame\n");
 
+  
     res = received_message(fd);
     if(res != 0)
         printf("Error received message\n");
