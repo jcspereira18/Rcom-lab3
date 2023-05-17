@@ -201,7 +201,7 @@ void alarme()
 int write_frame(int fd)
 {
     int res, i;
-    char buf[255]={0} , buf2[255]={0x5c, 0x5D, 0x01, 0x06, 0x01};
+    char buf[255]={0} , buf2[255]={0x5D, 0x5c, 0x01, 0x05d};
     char bcc = buf2[0];
 
     buf[0]=0x5C;
@@ -210,6 +210,12 @@ int write_frame(int fd)
     buf[3]=0x01^0x03;
     
     write(fd,buf,strlen(buf));
+
+    for(i = 1; i < strlen(buf2); i++)
+            bcc = buf2[i] ^ bcc;
+    printf("\tBCC2: 0x%x\n", bcc);
+
+    buf2[strlen(buf2)] = bcc;
 
     for(i = 0; i < strlen(buf2); i++)
     {   
@@ -226,14 +232,6 @@ int write_frame(int fd)
         else
             write(fd,&buf2[i],1);
     }
-
-    for(i = 1; i < strlen(buf2); i++)
-        bcc = buf2[i] ^ bcc;
-
-    printf("\tBCC2: 0x%x\n", bcc);
-
-    buf[4]=bcc;
-    write(fd,&buf[4],1);
 
     buf[5]=0x5C;
     write(fd,&buf[5],1); 

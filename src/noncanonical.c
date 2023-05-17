@@ -312,14 +312,15 @@ int read_frame(int fd){
 
                 for(i = 1; i < strlen(buf)-1; i++)
                     bcc = buf[i] ^ bcc;
-            
+                
                 printf("\tBCC2: 0x%x\n", bcc);
 
-                if(bcc==buf[strlen(buf)-1])
+
+                if(bcc==buf[strlen(buf)-1]){
                     currentState = END;
-           
+                }
                 else{
-                    printf("Error na transmissao de dados");
+                    printf("Error na transmissao de dados\n");
                     return 1;
                 }
 
