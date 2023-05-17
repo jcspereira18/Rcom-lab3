@@ -47,7 +47,7 @@ int received_message(int fd)
         i++;
     }
 
-    printf("Writing back\n"); 
+    printf("\nWriting back\n"); 
     res = write(fd, msg, i);
     printf("\tMessage: %s :%d\n", msg, res);
     
@@ -167,6 +167,172 @@ int SET_read(int fd)
 }
 
 
+int read_frame(int fd){
+    uint8_t temp = 0, address, control;
+    int res, i = 0, aux=0;
+    char buf[255] = {0}, bcc;
+
+
+    FRAME_State currentState = START;
+
+    while(currentState != END){
+
+        switch(currentState){
+
+            case START:
+
+                if (read(fd, &temp, 1) == 0) 
+                    if (currentState != END) 
+                        return NULL; 
+
+                if(temp == F){                    
+                    printf("\tReceived: 0x%x\n", temp);
+                    currentState = FLAG_RCV;
+                }
+
+            break;
+            
+            case FLAG_RCV:
+
+                if (read(fd, &temp, 1) == 0) 
+                    if (currentState != END) 
+                        return NULL; 
+
+                if(temp == F){
+                    printf("\tReceived: 0x%x\n", temp);
+                    currentState = FLAG_RCV;
+                }
+                else if(temp ==0x03 || temp == 0x01){
+                    printf("\tReceived: 0x%x\n", temp);
+                    address = temp;
+                    currentState = A_RCV;
+                }                            
+                
+            break; 
+
+            case A_RCV:
+
+                if (read(fd, &temp, 1) == 0) 
+                    if (currentState != END) 
+                        return NULL; 
+
+                if(temp == F){
+                    printf("\tReceived: 0x%x\n", temp);
+                    currentState = FLAG_RCV;
+                }
+                else{                  
+                    printf("\tReceived: 0x%x\n", temp);
+                    control = temp;                    
+                    currentState = C_RCV;
+                }
+                               
+            break;
+
+            case C_RCV:
+
+                if (read(fd, &temp, 1) == 0) 
+                    if (currentState != END) 
+                        return NULL; 
+                
+                if(temp == F){
+                    printf("\tReceived: 0x%x\n", temp);
+                    currentState = FLAG_RCV;
+                }
+
+                if(temp == control ^ address){
+                    printf("\tReceived: 0x%x\n", temp);                    
+                    currentState = BCC_RCV;                   
+                }
+                
+            break;
+
+            case BCC_RCV:
+
+                if (read(fd, &temp, 1) == 0) 
+                    if (currentState != END) 
+                        return NULL; 
+
+                if(temp == ESC){
+                    aux = 1;
+                    printf("\tReceived: 0x%x\n", temp);
+                    currentState = ESC_RCV;
+                }
+                
+                else if (temp == F){
+                    if(aux == 0){                        
+                        printf("\tReceived: 0x%x\n", temp);
+                        currentState = END;
+                    }
+            
+                    if(aux == 1){                        
+                        printf("\tReceived: 0x%x\n", temp);
+
+                        //for(i = 0; i < strlen(buf); i++)
+                        //    printf("\tbuf[%d]: 0x%x\n", i, buf[i]);
+                        currentState = BCC2;
+                    }
+                } 
+                
+                else { 
+                    printf("\tReceived: 0x%x\n", temp);                    
+                    buf[i] = temp;
+                    i++;
+                } 
+ 
+            break;
+
+            case ESC_RCV:
+
+                if (read(fd, &temp, 1) == 0) 
+                    if (currentState != END) 
+                        return NULL; 
+
+                if(temp == 0x7D){
+                    printf("\tReceived: 0x%x\n", temp);
+                    buf[i] = ESC;
+                    i++;
+                    currentState = BCC_RCV;
+                }
+                else if(temp == 0x7C){
+                    printf("\tReceived: 0x%x\n", temp);
+                    buf[i] = F;
+                    i++;
+                    currentState = BCC_RCV;
+                }
+                else {
+                    printf("Error: unknown escape sequence\n");
+                    return 1;
+                }
+
+            break;
+
+            case BCC2:
+
+                bcc = buf[0];
+
+                for(i = 1; i < strlen(buf)-1; i++)
+                    bcc = buf[i] ^ bcc;
+            
+                printf("\tBCC2: 0x%x\n", bcc);
+
+                if(bcc==buf[strlen(buf)-1])
+                    currentState = END;
+           
+                else{
+                    printf("Error na transmissao de dados");
+                    return 1;
+                }
+
+            break;
+
+            case END:
+            break; 
+        }
+    }
+
+    return 0;
+}
+
 
 int main(int argc, char** argv)
 {
@@ -222,7 +388,7 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    printf("Writing back SET\n");
+    printf("\nWriting back SET\n");
     res_read = SET_read(fd);
 
     if(res_read == 0)
@@ -230,11 +396,18 @@ int main(int argc, char** argv)
     else 
         printf("Error read SET\n");
 
+    printf("\nSend UA\n");
     res_write = send_UA(fd);
     if (res_write != 0)
         printf("Error sending SET\n");
 
-    
+    printf("\nWriting back Frame\n");
+    res_frame = read_frame(fd);
+    if (res_frame == 0)
+        printf("Read frame correctly\n");
+    else
+        printf("Error reading frame\n");
+
     res = received_message(fd);
     if(res != 0)
         printf("Error received message\n");

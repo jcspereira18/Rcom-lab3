@@ -40,7 +40,7 @@ int send_message(int fd)
     int res, i;
     char ch, buf[255];
 
-    printf("Write a message: ");
+    printf("\nWrite a message: ");
     for (i =0; (i<255) && ((ch = getchar()) != EOF) && (ch != '\n'); i++) 
         buf[i] = ch;
     buf[i] = '\0';
@@ -82,7 +82,7 @@ int UA_read(int fd)
 
     UA_State currentState = START;
 
-    //printf("Writing back UA\n");
+    printf("\nWriting back UA\n");
     while(currentState != END){
 
         res = read(fd, &temp, 1);
@@ -182,7 +182,7 @@ void alarme()
     buf[3]=0x01^0x03;
     buf[4]=0x5C;
 
-    printf("Didn´t receive UA\n");
+    printf("\nDidn´t receive UA\n");
     res = write(fd,buf,strlen(buf));
     printf("%d bytes written SET\n", res);
     
@@ -195,6 +195,52 @@ void alarme()
         
     alarm(3);
     
+}
+
+
+int write_frame(int fd)
+{
+    int res, i;
+    char buf[255]={0} , buf2[255]={0x5c, 0x5D, 0x01, 0x06, 0x01};
+    char bcc = buf2[0];
+
+    buf[0]=0x5C;
+    buf[1]=0x01;
+    buf[2]=0x03;
+    buf[3]=0x01^0x03;
+    
+    write(fd,buf,strlen(buf));
+
+    for(i = 0; i < strlen(buf2); i++)
+    {   
+        if(buf2[i] == 0x5C){ //0x5c -> ESC 0x7c
+            char aux[255] = {ESC, 0x7C};              
+            write(fd, aux, 2);    
+        }
+
+        else if(buf2[i] == 0x5D){ //0x5d -> ESC 0x7d
+            char aux2[255] = {ESC, 0x7D};
+            write(fd, aux2, 2);
+        }
+        
+        else
+            write(fd,&buf2[i],1);
+    }
+
+    for(i = 1; i < strlen(buf2); i++)
+        bcc = buf2[i] ^ bcc;
+
+    printf("\tBCC2: 0x%x\n", bcc);
+
+    buf[4]=bcc;
+    write(fd,&buf[4],1);
+
+    buf[5]=0x5C;
+    write(fd,&buf[5],1); 
+
+    //printf("%d bytes written SET\n", res);
+
+    return 0;   
 }
 
 
@@ -219,7 +265,7 @@ int main(int argc, char** argv)
     */
 
 
-    fd = open(argv[1], O_RDWR | O_NOCTTY );
+    fd = open(argv[1], O_RDONLY | O_RDWR );
     if (fd < 0) { perror(argv[1]); exit(-1); }
 
     if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
@@ -257,6 +303,7 @@ int main(int argc, char** argv)
 
     (void) signal(SIGALRM, alarme);
 
+    printf("\nSend SET\n");
     res_write = send_SET(fd);
     if (res_write != 0)
         printf("Error sending SET\n");
@@ -270,6 +317,11 @@ int main(int argc, char** argv)
         printf("Read UA correctly\n");
     else 
         printf("Error read UA\n");
+
+    printf("\nSend Frame\n");
+    res_frame = write_frame(fd);
+    if(res_frame != 0)
+        printf("Error writing Frame\n");
 
 
     res = send_message(fd);
