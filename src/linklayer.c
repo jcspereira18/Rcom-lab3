@@ -65,18 +65,18 @@ int llopen(linkLayer connectionParameters)
     {
         printf("\nSend SET\n");
         res_write = send_SET(fd);
+        alarm(alarm_timeOut);
         if (res_write != 0){
             printf("Error sending SET\n");
             return -1;
         }
 
-        alarm(alarm_timeOut);
+        res_read = read_UA(fd);
 
-        res_read = read_frame(buf, fd);
-        alarm(0);
-
-        if(res_read == -1)
+        if(res_read == 0) {
             printf("Connection established: Read UA\n");
+            alarm(0);
+        }
         else{
             printf("Error: Connection\n");
             return -1;
@@ -87,8 +87,8 @@ int llopen(linkLayer connectionParameters)
     if(connectionParameters.role == RECEIVER)
     {
         printf("\nWriting back SET\n");
-        res_read = read_frame(buf, fd);
-        if(res_read == -1)
+        res_read = read_SET(fd);
+        if(res_read == 0)
             printf("Connection established: Read SET\n");
         
         else{
@@ -103,7 +103,6 @@ int llopen(linkLayer connectionParameters)
             return -1;
         }
     }
-
     return 1;
 
 }
@@ -142,15 +141,22 @@ int llread(char* packet)
 // Closes previously opened connection; if showStatistics==TRUE, link layer should print statistics in the console on close
 int llclose(linkLayer connectionParameters, int showStatistics)
 {
-    if(showStatistics==TRUE)
+      if(showStatistics==TRUE)
     {
         printf("Statistics: %d\n", showStatistics);
     }
     
-    //if(connectionParameters.role == RECEIVER)
-    //{
-//
-    //}
+    if(connectionParameters.role == RECEIVER) {
+        read_DISC(fd);
+        send_DISC(fd);
+        read_UA(fd);
+    } 
+    else {
+        send_DISC(fd);
+        read_DISC(fd);
+        send_UA(fd);
+    }
+
 
     sleep(1);
     tcsetattr(fd,TCSANOW,&oldtio);
